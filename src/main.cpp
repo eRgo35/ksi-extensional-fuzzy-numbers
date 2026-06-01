@@ -57,11 +57,10 @@ class fuzzy_set_triangle : public fuzzy_set
          {
             return (x - _supp_left) / (_core - _supp_left);
          }
-         else 
+         else
          {
             return (_supp_right - x) / (_supp_right - _core);
          }
-         return 0.0;
       }
 };
 // / / / / / / / / / / / / /     
@@ -109,6 +108,8 @@ namespace  ksi
          triangular_efn (const double number, const double p) : _core(number), _p(p) {}
          static double relation (const double x, const double core, const double p)
          {
+            if (p == 0.0)
+               return (x == core) ? 1.0 : 0.0;
             return std::max (0.0, 1 - std::abs(x - core) / p);
          }
          static double equal (const triangular_efn & l, const triangular_efn & r)
@@ -187,7 +188,7 @@ namespace  ksi
 
    };
 
-   class trapezoidal_efn 
+   class trapezoidal_efn : public extensional_fuzzy_number
    {
       public:
          trapezoidal_efn () : trapezoidal_efn(0.0, 0.0) {} 
@@ -275,7 +276,7 @@ namespace  ksi
    };
 
    /** To nie jest chyba dobry pomysł, bo przy taka relacja nie jest symetryczna. */
-   class triangular_asymmetric_efn 
+   class triangular_asymmetric_efn : public extensional_fuzzy_number
    {
       public:
          triangular_asymmetric_efn () : triangular_asymmetric_efn(0.0, 0.0, 0.0) {} 
@@ -363,13 +364,15 @@ namespace  ksi
 
    };
 
-   class gaussian_efn 
+   class gaussian_efn : public extensional_fuzzy_number
    {
       public:
          gaussian_efn () : gaussian_efn(0.0, 0.0) {} 
          gaussian_efn (const double number, const double p) : _core(number), _p(p) {}; 
          static double relation (const double x, const double core, const double p)
          {
+            if (p == 0.0)
+               return (x == core) ? 1.0 : 0.0;
             double x_core_2 = (x - core) * (x - core);
             double _2_s_2   = 2 * p * p;
             return std::exp (- x_core_2/ _2_s_2);
@@ -449,13 +452,15 @@ namespace  ksi
 
    };
 
-   class expabs_efn 
+   class expabs_efn : public extensional_fuzzy_number
    {
       public:
          expabs_efn () : expabs_efn(0.0, 0.0) {} 
          expabs_efn (const double number, const double p) : _core(number), _p(p) {}; 
          static double relation (const double x, const double core, const double p)
          {
+            if (p == 0.0)
+               return (x == core) ? 1.0 : 0.0;
             double abs_x_core = std::abs(x - core);
             return std::exp (- abs_x_core/ p);
          }
@@ -581,7 +586,6 @@ namespace  ksi
 
          typename std::vector<T> X (values);
          ksi::sort(X);
-         ksi::print (X); // tymczasowo
          T results;
          for (std::size_t i = 0; i < values.size(); ++i)
          {
@@ -602,7 +606,6 @@ namespace  ksi
 
          typename std::vector<T> X (values);
          ksi::sort(X, xi);
-         ksi::print (X); // tymczasowo
          T result;
          for (std::size_t i = 0; i < values.size(); ++i)
          {
@@ -718,7 +721,7 @@ namespace  ksi
                 else 
                 {
                    d[i][j] = T::infinity();
-                   p[i][j] = std::numeric_limits<int>::min(); // nothing 
+                   p[i][j] = -1; // nothing (no predecessor)
                 }
             }
          }
@@ -730,33 +733,6 @@ namespace  ksi
                p[i][j] = j;
             }
          }
-
-         ///////
-         {
-            std::cout << "distance matrix" << std::endl; 
-            for (const auto [i, edges] : d)
-            {
-               std::cout << i << " | ";
-               for (const auto [j, w] : edges)
-               {
-                  std::cout << w << " ";             
-               }
-               std::cout << std::endl;
-            }
-         }
-         {
-            std::cout << "predecessor matrix" << std::endl; 
-            for (const auto [i, edges] : p)
-            {
-               std::cout << i << " | ";
-               for (const auto [j, w] : edges)
-               {
-                  std::cout << w << " ";             
-               }
-               std::cout << std::endl;
-            }
-         }
-         ///////////////////////////// 
 
          // no to jestemy gotowi!
          {
