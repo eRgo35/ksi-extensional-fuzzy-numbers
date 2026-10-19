@@ -3,6 +3,13 @@
  *
  * @author Krzysztof Siminski
  * @date   2024-09-06
+ * @date   2026-07-30
+ *
+ * CITATION REQUEST:
+ * Please cite this if you use this code:
+ * 
+ *
+ *
  *
  * */
 
@@ -22,31 +29,38 @@
 
 #define debug(x) std::cerr << __FILE__ << " (" << __LINE__ << ") " << #x << " : " << (x) << std::endl
 
-class tnorm 
-{
-   public: 
-      virtual double value (const double a, const double b) const = 0;
-};
+///////////////////////////////////////
 
-class tnorm_product : public tnorm
-{
-   public: 
-      virtual double value (const double a, const double b) const override 
-      {
-         return a * b;
-      }
-};
 
-class fuzzy_set
+namespace  ksi 
 {
-   public :
-      virtual double membership (const double x) const = 0;
-};
+   class tnorm 
+   {
+      public: 
+         virtual ~tnorm() = default;
+         virtual double value (const double a, const double b) const = 0;
+   };
 
-class fuzzy_set_triangle : public fuzzy_set
-{
-   double _supp_left, _core, _supp_right;
-   public :
+   class tnorm_product : public tnorm
+   {
+      public: 
+         virtual double value (const double a, const double b) const override 
+         {
+            return a * b;
+         }
+   };
+
+   class fuzzy_set
+   {
+      public :
+         virtual ~fuzzy_set() = default;
+         virtual double membership (const double x) const = 0;
+   };
+
+   class fuzzy_set_triangle : public fuzzy_set
+   {
+      double _supp_left, _core, _supp_right;
+      public :
       fuzzy_set_triangle (const double support_left, const double core, const double support_right) : _supp_left(support_left), _core(core), _supp_right(support_right) {}
 
       virtual double membership (const double x) const override
@@ -62,46 +76,50 @@ class fuzzy_set_triangle : public fuzzy_set
             return (_supp_right - x) / (_supp_right - _core);
          }
       }
-};
-// / / / / / / / / / / / / /     
+   };
+   //////////////////////////
 
-std::map<double, double> fuzzy_operation (const fuzzy_set & A, const fuzzy_set & B, const tnorm & t, const auto op, const double mini_x, const double maxi_x, const double step)
-{
-   std::map<double, double> result;
-
-   for (double x = mini_x; x <= maxi_x; x += step)
+   std::map<double, double> fuzzy_operation (const fuzzy_set & A, const fuzzy_set & B, const tnorm & t, const auto op, const double mini_x, const double maxi_x, const double step)
    {
-      for (double y = mini_x; y <= maxi_x; y += step)
+      std::map<double, double> result;
+
+      for (double x = mini_x; x <= maxi_x; x += step)
       {
-         double memb = t.value(A.membership(x), B.membership(y));
-         double z = op(x, y);
-         double prev = result[z];
-         // debug(x); debug(y); debug(z); debug(value); debug(prev);
-         result[z] = std::max(prev, memb);
+         for (double y = mini_x; y <= maxi_x; y += step)
+         {
+            double memb = t.value(A.membership(x), B.membership(y));
+            double z = op(x, y);
+            double prev = result[z];
+            // debug(x); debug(y); debug(z); debug(value); debug(prev);
+            result[z] = std::max(prev, memb);
+         }
       }
+      return result;
    }
-   return result;
-}
 
-
-///////////////////////////////////////
-namespace  ksi 
-{
-
+   /////////////////////////
    template <class T> 
-   void print (typename std::vector<T> & A)
+   void print (const T & a)
+   {
+      std::cout << a << " ";
+   }
+   template <class T> 
+   void print (const std::vector<T> & A)
    {
       std::cout << "[ ";
       for (const auto & a : A)
-         std::cout << a << " ";
+         print(a);
       std::cout << "]" << std::endl;
    }
+   /////////////////////////
 
    class extensional_fuzzy_number
    { 
+      public:
+         virtual ~extensional_fuzzy_number() = default;
    };
-   
-   class triangular_efn  : public extensional_fuzzy_number
+
+   class triangular_efn : public extensional_fuzzy_number
    {
       public:
          triangular_efn () : triangular_efn(0.0, 0.0) {} 
@@ -114,9 +132,9 @@ namespace  ksi
          }
          static double equal (const triangular_efn & l, const triangular_efn & r)
          {
-               double d = std::abs(l._core - r._core);
-               double p = std::max(l._p, r._p); 
-               return relation(0.0, d, p);
+            double d = std::abs(l._core - r._core);
+            double p = std::max(l._p, r._p); 
+            return relation(0.0, d, p);
          }
          static double less (const triangular_efn & l, const triangular_efn & r)
          {
@@ -154,7 +172,7 @@ namespace  ksi
                return 1;
             }
          }
-         
+
          //////////////////
          static triangular_efn zero () 
          {
@@ -177,31 +195,39 @@ namespace  ksi
          {
             return triangular_efn (this->_core + r._core, std::max(this->_p, r._p));
          }
+         triangular_efn operator - (const triangular_efn & r) const
+         {
+            return triangular_efn (this->_core - r._core, std::max(this->_p, r._p));
+         }
+         triangular_efn operator / (const triangular_efn & r) const
+         {
+            return triangular_efn (this->_core / r._core, std::max(this->_p, r._p));
+         }
          friend std::ostream & operator << (std::ostream & sos, const triangular_efn & t)
          {
             return sos << "(" << t._core << ", " << t._p << ")";
          }
          //////////////////
-       protected:
-          double _core; // core of the number
-          double _p; // half of the support
+      protected:
+         double _core; // core of the number
+         double _p; // half of the support
 
    };
 
-   class trapezoidal_efn : public extensional_fuzzy_number
+   class trapezoidal_efn : public extensional_fuzzy_number 
    {
       public:
          trapezoidal_efn () : trapezoidal_efn(0.0, 0.0) {} 
-         trapezoidal_efn (const double number, const double p) : _core(number), _p(p) {}
+         trapezoidal_efn (const double number, const double p = 0) : _core(number), _p(p) {}
          static double relation (const double x, const double core, const double p, const double k)
          {
             return std::min (1.0, std::max (0.0, 1 - std::abs(x - core) / p) / (1 - k));
          }
          static double equal (const trapezoidal_efn & l, const trapezoidal_efn & r)
          {
-               double d = std::abs(l._core - r._core);
-               double p = std::max(l._p, r._p); 
-               return relation(0.0, d, p, _k);
+            double d = std::abs(l._core - r._core);
+            double p = std::max(l._p, r._p); 
+            return relation(0.0, d, p, _k);
          }
          static double less (const trapezoidal_efn & l, const trapezoidal_efn & r)
          {
@@ -240,7 +266,7 @@ namespace  ksi
                return 1;
             }
          }
-         
+
          //////////////////
          static trapezoidal_efn zero () 
          {
@@ -263,6 +289,14 @@ namespace  ksi
          {
             return trapezoidal_efn (this->_core + r._core, std::max(this->_p, r._p));
          }
+         trapezoidal_efn operator - (const trapezoidal_efn & r) const
+         {
+            return trapezoidal_efn (this->_core - r._core, std::max(this->_p, r._p));
+         }
+         trapezoidal_efn operator / (const trapezoidal_efn & r) const
+         {
+            return trapezoidal_efn (this->_core / r._core, std::max(this->_p, r._p));
+         }
          friend std::ostream & operator << (std::ostream & sos, const trapezoidal_efn & t)
          {
             return sos << "(" << t._core << ", " << t._p << ")";
@@ -275,12 +309,11 @@ namespace  ksi
 
    };
 
-   /** To nie jest chyba dobry pomysł, bo przy taka relacja nie jest symetryczna. */
-   class triangular_asymmetric_efn : public extensional_fuzzy_number
+   class triangular_asymmetric_efn  : public extensional_fuzzy_number
    {
       public:
          triangular_asymmetric_efn () : triangular_asymmetric_efn(0.0, 0.0, 0.0) {} 
-         triangular_asymmetric_efn (const double number, const double p_left, const double p_right) : _core(number), _p_left(p_left), _p_right(p_right) {}
+         triangular_asymmetric_efn (const double number, const double p_left = 0, const double p_right = 0) : _core(number), _p_left(p_left), _p_right(p_right) {}
          static double relation (const double x, const double core, const double p_left, const double p_right)
          {
             if (x < core) 
@@ -290,10 +323,10 @@ namespace  ksi
          }
          static double equal (const triangular_asymmetric_efn & l, const triangular_asymmetric_efn & r)
          {
-               double d = std::abs(l._core - r._core);
-               double p_left = std::max(l._p_left, r._p_left); 
-               double p_right = std::max(l._p_right, r._p_right); 
-               return relation(0.0, d, p_left, p_right);
+            double d = std::abs(l._core - r._core);
+            double p_left = std::max(l._p_left, r._p_left); 
+            double p_right = std::max(l._p_right, r._p_right); 
+            return relation(0.0, d, p_left, p_right);
          }
          static double less (const triangular_asymmetric_efn & l, const triangular_asymmetric_efn & r)
          {
@@ -353,6 +386,14 @@ namespace  ksi
          {
             return triangular_asymmetric_efn (this->_core + r._core, std::max(this->_p_left, r._p_left), std::max(this->_p_right, r._p_right));
          }
+         triangular_asymmetric_efn operator - (const triangular_asymmetric_efn & r) const
+         {
+            return triangular_asymmetric_efn (this->_core - r._core, std::max(this->_p_left, r._p_left), std::max(this->_p_right, r._p_right));
+         }
+         triangular_asymmetric_efn operator / (const triangular_asymmetric_efn & r) const
+         {
+            return triangular_asymmetric_efn (this->_core / r._core, std::max(this->_p_left, r._p_left), std::max(this->_p_right, r._p_right));
+         }
          friend std::ostream & operator << (std::ostream & sos, const triangular_asymmetric_efn & t)
          {
             return sos << "(" << t._core << ", " << t._p_left << ", " << t._p_right << ")";
@@ -364,11 +405,11 @@ namespace  ksi
 
    };
 
-   class gaussian_efn : public extensional_fuzzy_number
+   class gaussian_efn  : public extensional_fuzzy_number
    {
       public:
          gaussian_efn () : gaussian_efn(0.0, 0.0) {} 
-         gaussian_efn (const double number, const double p) : _core(number), _p(p) {}; 
+         gaussian_efn (const double number, const double p = 0) : _core(number), _p(p) {}; 
          static double relation (const double x, const double core, const double p)
          {
             if (p == 0.0)
@@ -379,9 +420,9 @@ namespace  ksi
          }
          static double equal (const gaussian_efn & l, const gaussian_efn & r)
          {
-               double d = std::abs(l._core - r._core);
-               double p = std::max(l._p, r._p); 
-               return relation(0.0, d, p);
+            double d = std::abs(l._core - r._core);
+            double p = std::max(l._p, r._p); 
+            return relation(0.0, d, p);
          }
          static double less (const gaussian_efn & l, const gaussian_efn & r)
          {
@@ -441,6 +482,14 @@ namespace  ksi
          {
             return gaussian_efn (this->_core + r._core, std::max(this->_p, r._p));
          }
+         gaussian_efn operator - (const gaussian_efn & r) const 
+         {
+            return gaussian_efn (this->_core - r._core, std::max(this->_p, r._p));
+         }
+         gaussian_efn operator / (const gaussian_efn & r) const 
+         {
+            return gaussian_efn (this->_core / r._core, std::max(this->_p, r._p));
+         }
          //////////////////
          friend std::ostream & operator << (std::ostream & sos, const gaussian_efn & t)
          {
@@ -452,11 +501,11 @@ namespace  ksi
 
    };
 
-   class expabs_efn : public extensional_fuzzy_number
+   class expabs_efn  : public extensional_fuzzy_number
    {
       public:
          expabs_efn () : expabs_efn(0.0, 0.0) {} 
-         expabs_efn (const double number, const double p) : _core(number), _p(p) {}; 
+         expabs_efn (const double number, const double p = 0) : _core(number), _p(p) {}; 
          static double relation (const double x, const double core, const double p)
          {
             if (p == 0.0)
@@ -466,9 +515,9 @@ namespace  ksi
          }
          static double equal (const expabs_efn & l, const expabs_efn & r)
          {
-               double d = std::abs(l._core - r._core);
-               double p = std::max(l._p, r._p); 
-               return relation(0.0, d, p);
+            double d = std::abs(l._core - r._core);
+            double p = std::max(l._p, r._p); 
+            return relation(0.0, d, p);
          }
          static double less (const expabs_efn & l, const expabs_efn & r)
          {
@@ -528,6 +577,14 @@ namespace  ksi
          {
             return expabs_efn (this->_core + r._core, std::max(this->_p, r._p));
          }
+         expabs_efn operator - (const expabs_efn & r) const 
+         {
+            return expabs_efn (this->_core - r._core, std::max(this->_p, r._p));
+         }
+         expabs_efn operator / (const expabs_efn & r) const 
+         {
+            return expabs_efn (this->_core / r._core, std::max(this->_p, r._p));
+         }
          //////////////////
          friend std::ostream & operator << (std::ostream & sos, const expabs_efn & t)
          {
@@ -538,7 +595,10 @@ namespace  ksi
          double _p; // parameter
 
    };
+}
 
+namespace ksi 
+{
    template <class T>
       void sort(typename std::vector<T> & numbers)
       {
@@ -624,7 +684,7 @@ namespace  ksi
             void add_edge (const int start_node, const int end_node, const T &  weight)
             {
                nodes[start_node].push_back({end_node,  weight});
-               
+
                if (nodes.count(end_node) == 0)
                   nodes.insert({end_node, {}});
             }
@@ -632,7 +692,7 @@ namespace  ksi
             template <typename Y>
                friend std::ostream & operator << (std::ostream &, const graph<Y> &);
       };
-   
+
    template <typename T>
       std::ostream & operator << (std::ostream & sos, const graph<T> & g)
       {
@@ -645,20 +705,20 @@ namespace  ksi
          }
          return sos;
       }
-   
+
    template <typename T>
       void print (std::ostream & sos, const std::unordered_map<int, std::unordered_map<int, T>> & d) 
+      {
+         for (const auto [i, edges] : d)
          {
-            for (const auto [i, edges] : d)
+            sos << i << " | ";
+            for (const auto [j, w] : edges)
             {
-               sos << i << " | ";
-               for (const auto [j, w] : edges)
-               {
-                  sos << w << " ";             
-               }
-               sos << std::endl;
+               sos << w << " ";             
             }
+            sos << std::endl;
          }
+      }
 
    template <typename T>
       void print_paths (std::ostream & sos, const std::unordered_map<int, std::unordered_map<int, T>> & d, const std::unordered_map<int, std::unordered_map<int, int>> & p)
@@ -713,16 +773,16 @@ namespace  ksi
          {
             for (const int j : node_indices)
             {
-                if  (i == j)
-                {
-                   d[i][j] = T::zero();  
-                   p[i][j] = j;
-                }
-                else 
-                {
-                   d[i][j] = T::infinity();
-                   p[i][j] = -1; // nothing (no predecessor)
-                }
+               if  (i == j)
+               {
+                  d[i][j] = T::zero();  
+                  p[i][j] = j;
+               }
+               else 
+               {
+                  d[i][j] = T::infinity();
+                  p[i][j] = -1; // nothing (no predecessor)
+               }
             }
          }
          for (const auto [i, edges] : G.nodes)
@@ -754,6 +814,137 @@ namespace  ksi
          }
          return {d, p};
       }
+}
+
+namespace ksi 
+{
+   template <typename T>
+   class linear_regression
+   {
+      std::vector<std::vector<T>> transpose (const std::vector<std::vector<T>> & matrix)
+      {
+         auto num_rows = matrix.size();
+         auto num_cols = matrix[0].size(); 
+
+         std::vector<std::vector<T>> transposed (num_cols, std::vector<T>(num_rows));
+         for (std::size_t i = 0; i < num_rows; ++i)
+         {
+            for (std::size_t j = 0; j < num_cols; ++j)
+            {
+               transposed[j][i] = matrix[i][j];
+            }
+         }
+         return transposed;
+      }
+
+      std::vector<std::vector<T>> multiply (const std::vector<std::vector<T>> & A, const std::vector<std::vector<T>> & B)
+      {
+         auto num_rows_A = A.size();
+         auto num_cols_A = A[0].size();
+         auto num_rows_B = B.size();
+         auto num_cols_B = B[0].size();
+
+         if (num_cols_A != num_rows_B)
+         {
+            throw "Number of columns in A must match number of rows in B.";
+         }
+
+         std::vector<std::vector<T>> result (num_rows_A, std::vector<T>(num_cols_B, T()));
+         for (std::size_t i = 0; i < num_rows_A; ++i)
+         {
+            for (std::size_t j = 0; j < num_cols_B; ++j)
+            {
+               for (std::size_t k = 0; k < num_cols_A; ++k)
+               {
+                  result[i][j] = result[i][j] + A[i][k] * B[k][j];
+               }
+            }
+         }
+         return result;
+      }
+
+      std::vector<std::vector<T>> invert (const std::vector<std::vector<T>> & matrix)
+      {
+         // inversja macierzy, np. metodą Gaussa-Jordana 
+         // metoda Gaussa-Jordana: 
+         
+         auto num_rows = matrix.size();
+         auto extented_matrix = matrix; // rozszerzona macierz [A | I]
+         for (std::size_t i = 0; i < num_rows; ++i)
+         {
+            extented_matrix[i].resize(2 * num_rows, T());
+            extented_matrix[i][num_rows + i] = T() + T(1); // dodajemy macierz jednostkową
+         }
+         // etap drugi: redukcja do postaci schodkowej 
+         for (std::size_t i = 0; i < num_rows; ++i)
+         {
+            // eliminacja Gaussa
+            for (std::size_t j = i + 1; j < num_rows; ++j)
+            {
+               T factor = extented_matrix[j][i] / extented_matrix[i][i];
+               for (std::size_t k = i; k < 2 * num_rows; ++k)
+               {
+                  extented_matrix[j][k] = extented_matrix[j][k] - factor * extented_matrix[i][k];
+               }
+            }
+         }
+         // etap trzeci: redukcja do postaci diagonalnej  
+         for (std::size_t i = num_rows; i > 0; --i)
+         {
+            // eliminacja Gaussa-Jordana
+            for (std::size_t j = i - 1; j > 0; --j)
+            {
+               T factor = extented_matrix[j - 1][i - 1] / extented_matrix[i - 1][i - 1];
+               for (std::size_t k = i - 1; k < 2 * num_rows; ++k)
+               {
+                  extented_matrix[j - 1][k] = extented_matrix[j - 1][k] - factor * extented_matrix[i - 1][k];
+               }
+            }
+         }
+
+         // etap czwarty: normalizacja do postaci jednostkowej
+         for (std::size_t i = 0; i < num_rows; ++i)
+         {
+            T factor = extented_matrix[i][i];
+            for (std::size_t k = i; k < 2 * num_rows; ++k)
+            {
+               extented_matrix[i][k] = extented_matrix[i][k] / factor;
+            }
+         }
+         
+         // etap piąty: wyodrębnienie macierzy odwrotnej 
+
+         for (std::size_t i = 0; i < num_rows; ++i)
+         {
+            for (std::size_t j = 0; j < num_rows; ++j)
+            {
+               extented_matrix[i][j] = extented_matrix[i][num_rows + j];
+            }
+            extented_matrix[i].resize(num_rows);
+         }
+
+         return extented_matrix; 
+      }
+
+
+      public: 
+         std::vector<std::vector<T>> elaborate_coefficients (const std::vector<std::vector<T>> & points, const std::vector<std::vector<T>> & output)
+         {
+            // points: matrix of input points, 
+            // output: vector of output values
+            // maths formula : points * coefficients = output 
+            //
+            std::vector<T> coefficients;
+            // maths: coefficients = (points^T * points)^(-1) * points^T * output  
+            auto pointsT = transpose(points);
+            auto pointsT_points = multiply(pointsT, points);
+            auto pointsT_points_inv = invert(pointsT_points);
+            auto pointsT_output = multiply(pointsT, output);
+
+            return multiply(pointsT_points_inv, pointsT_output);
+         }
+
+   };
 }
 
 //---------------------
@@ -849,9 +1040,9 @@ void example_2()
 //---------------------
 void fuzzy_operations()
 {
-   fuzzy_set_triangle A (2, 3, 5);
-   fuzzy_set_triangle B (6, 7, 9);
-   tnorm_product t;
+   ksi::fuzzy_set_triangle A (2, 3, 5);
+   ksi::fuzzy_set_triangle B (6, 7, 9);
+   ksi::tnorm_product t;
    
 
    {
@@ -1305,6 +1496,122 @@ void example_floydwarshall()
       std::cout << std::endl;
 
    }
+
+   {
+      std::cout << "### example 3" << std::endl; 
+
+      // Floyd-Warshall algorithm 
+      ksi::graph<ksi::gaussian_efn> G; // graph 
+      G.add_edge(1, 3, { 6, 8});
+      G.add_edge(2, 1, { 9, 5});
+      G.add_edge(2, 4, { 2, 9});
+      G.add_edge(3, 4, {13, 9});
+      G.add_edge(3, 6, { 5, 7});
+      G.add_edge(4, 1, { 5, 9});
+      G.add_edge(4, 6, { 17, 8});
+      G.add_edge(4, 7, { 3, 7});
+      G.add_edge(5, 2, { 5, 8});
+      G.add_edge(5, 4, { 8, 8});
+      G.add_edge(6, 7, {12, 7});
+      G.add_edge(7, 5, { 5, 8});
+
+      std::cout << "graph:" << std::endl;
+      std::cout << G << std::endl;
+
+      const double xi {0.5};
+      auto [d, p] = ksi::floyd_warshall(G, xi);
+      std::cout << "xi: " << xi << std::endl;
+      std::cout << "distance matrix" << std::endl;
+      ksi::print (std::cout, d);
+      std::cout << "predecessor matrix" << std::endl;
+      ksi::print (std::cout, p);
+      std::cout  << "paths" << std::endl;
+      print_paths(std::cout, d, p);
+      std::cout << std::endl;
+      std::cout << "----------------------" << std::endl;
+      std::cout << std::endl;
+
+   }
+
+}
+
+void example_linear_regression()
+{
+   std::cout << std::endl;
+   std::cout << "==========================" << std::endl;
+   std::cout << "EXAMPLE: LINEAR REGRESSION" << std::endl;
+   std::cout << "==========================" << std::endl;
+   std::cout << std::endl;
+
+   {
+      std::cout << "double" << std::endl;
+      using T = double; 
+      ksi::linear_regression<T> lr; 
+
+      std::vector<std::vector<T>> points {{2, 1}, {3, 1}, {5, 1}, {7, 1}, {11, 1}}; 
+      std::vector<std::vector<T>> output {{1}, {2}, {3}, {4}, {5}}; 
+
+      auto coefficients = lr.elaborate_coefficients(points, output); 
+      std::cout << "points:" << std::endl; 
+      ksi::print(points); 
+      std::cout << "output:" << std::endl; 
+      ksi::print(output); 
+      std::cout << "coefficients:" << std::endl; 
+      ksi::print(coefficients); 
+
+      std::cout << "----------------------" << std::endl; 
+   }
+
+   {
+      std::cout << "ksi::gaussian_efn" << std::endl;
+      using T = ksi::gaussian_efn;
+      ksi::linear_regression<T> lr;
+
+      std::vector<std::vector<T>> points {{ {2, 0.1}, {1, 0.1} }, { {3, 0.2}, {1, 0.2} }, { {5, 0.3}, {1, 0.1} }, { {7, 0.4}, {1, 0.1} }, { {11, 0.4}, {1, 0.2} }};
+      std::vector<std::vector<T>> output {{ {1, 0.2} }, { {2, 0.1} }, { {3, 0.2} }, { {4, 0.1} }, { {5, 0.3} }};
+
+      auto coefficients = lr.elaborate_coefficients(points, output);
+      std::cout << "points:" << std::endl;
+      ksi::print(points);
+      std::cout << "output:" << std::endl;
+      ksi::print(output);
+      std::cout << "coefficients:" << std::endl;
+      ksi::print(coefficients);
+
+      std::cout << "----------------------" << std::endl;
+   }
+   {
+      std::cout << "ksi::gaussian_efn" << std::endl;
+      using T = ksi::gaussian_efn;
+      ksi::linear_regression<T> lr;
+
+      std::vector<std::vector<T>> points 
+      {
+         { {1.0, 0.1}, {1, 0.1} },
+            { {2.0, 0.2}, {1, 0.2} }, 
+            { {3.0, 0.3}, {1, 0.1} }, 
+            { {4.0, 0.4}, {1, 0.1} }, 
+            { {5.0, 0.4}, {1, 0.2} }
+      };
+      std::vector<std::vector<T>> output 
+      {
+         { {1.5, 0.2} }, 
+            { {4.5, 0.1} }, 
+            { {5.5, 0.2} }, 
+            { {8.2, 0.1} }, 
+            { {9.5, 0.3} }
+      };
+
+      auto coefficients = lr.elaborate_coefficients(points, output);
+      std::cout << "points:" << std::endl;
+      ksi::print(points);
+      std::cout << "output:" << std::endl;
+      ksi::print(output);
+      std::cout << "coefficients:" << std::endl;
+      ksi::print(coefficients);
+
+      std::cout << "----------------------" << std::endl;
+   }
 }
 
 //---------------------
@@ -1315,10 +1622,11 @@ int main ()
    // example_2();
    // return 0;
 
-   const bool comparison {false};
+   const bool comparison {true};
    const bool sortowanie {true};
-   const bool floydwarshall {false};
-   const bool owa {false};
+   const bool floydwarshall {true};
+   const bool owa {true};
+   const bool linear_regression {true};
 
    if (comparison)
       example_comparison();
@@ -1328,6 +1636,8 @@ int main ()
       example_floydwarshall();
    if (owa)
       example_owa();
+   if (linear_regression)
+      example_linear_regression();
    return 0;
 }
 
